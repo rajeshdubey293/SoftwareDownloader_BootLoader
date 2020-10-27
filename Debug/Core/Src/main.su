@@ -1,0 +1,14 @@
+main.c:86:5:main	24	static
+main.c:153:6:userApplication	24	static,ignoring_inline_asm
+main.c:190:6:SystemClock_Config	88	static
+main.c:234:13:MX_CRC_Init	8	static
+main.c:260:13:MX_USART1_UART_Init	8	static
+main.c:293:13:MX_USART3_UART_Init	8	static
+main.c:326:13:MX_GPIO_Init	48	static
+main.c:357:6:printmsg	96	static
+main.c:370:10:crcCalculation	24	static
+main.c:393:9:word_to_bytes	16	static
+main.c:398:10:bytes_to_word	16	static
+main.c:402:9:execute_mem_write	40	static
+main.c:419:9:execute_flash_erase	48	static
+main.c:470:6:Error_Handler	4	static
