@@ -41,7 +41,8 @@ extern "C" {
 /* USER CODE BEGIN ET */
 #define FLASH_SECTOR6_BASE_ADDRESS 0x08040000U
 #define INVALID_SECTOR 0x04
-
+#define VERIFY_CRC_FAIL    1
+#define VERIFY_CRC_SUCCESS 0
 /* USER CODE END ET */
 
 /* Exported constants --------------------------------------------------------*/

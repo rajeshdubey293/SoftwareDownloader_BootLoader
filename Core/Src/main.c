@@ -48,8 +48,9 @@ UART_HandleTypeDef huart3;
 
 /* USER CODE BEGIN PV */
 
-#define D_UART 	&huart3
-#define C_UART	&huart1
+#define C_UART 	&huart3
+#define D_UART	&huart1
+
 
 /* USER CODE END PV */
 
@@ -66,6 +67,8 @@ uint8_t word_to_bytes(uint8_t *dest, uint32_t *src);
 uint32_t bytes_to_word(uint32_t *dest, uint8_t *src);
 uint8_t execute_mem_write(uint8_t *pBuffer, uint32_t mem_address, uint32_t len);
 uint8_t execute_flash_erase(uint8_t sector_number , uint8_t number_of_sector);
+uint32_t calculateAuthenticationKEY(uint32_t key);
+uint8_t bootloader_verify_crc (uint8_t *pData, uint32_t len, uint32_t crc_host);
 void userApplication(void);
 /* USER CODE END PFP */
 
@@ -74,8 +77,10 @@ void userApplication(void);
 volatile uint32_t pBuffer = (uint32_t)0x08040000;
 #define BL_RX_LEN  10000
 uint8_t dataArray[BL_RX_LEN];
-uint32_t payload_len = 0;
-uint32_t data[2] = {0};
+uint32_t uartDataRx[3] = {0};
+uint32_t uartDataTx[3] = {0};
+uint32_t payloadLen = 0;
+uint32_t key = 0xFFCCDDCC;
 
 /* USER CODE END 0 */
 
@@ -115,35 +120,67 @@ int main(void)
   /* USER CODE END 2 */
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
-  memset(dataArray,0,1000);
+  memset(dataArray,0,10000);
 
   if(HAL_GPIO_ReadPin(GPIOA, GPIO_PIN_0) == GPIO_PIN_SET)
   {
+	  printmsg("BootLoader Mode\r\n");
+	  uint32_t downloaderKey = calculateAuthenticationKEY(key);
+	  uartDataTx[0] = key;
+	  printmsg("Waiting for Tester Connection");
+	  uint32_t temp = 0;
+	  HAL_UART_Receive(&huart3, &temp, 4, HAL_MAX_DELAY);
+	  printmsg("Sending Authentication Key to Tester\r\n");
+	  HAL_Delay(1000);
+	  HAL_UART_Transmit(&huart3, &uartDataTx[0], 4, HAL_MAX_DELAY);
+	  printmsg("Waiting for the Tester Key\r\n");
+	  HAL_UART_Receive(&huart3, &uartDataRx[0], 4, HAL_MAX_DELAY);
+	  if(uartDataRx[0] == downloaderKey)
+	  {
+		  printmsg("Tester is verified successfully\r\n");
+		  uartDataTx[1] = 0xFFFFFFFF;
+		  HAL_Delay(1000);
+		  HAL_UART_Transmit(&huart3, &uartDataTx[1], 4, HAL_MAX_DELAY);
+		  printmsg("Verification msg sent");
+		  HAL_UART_Receive(&huart3, &uartDataRx[1], 8, HAL_MAX_DELAY);
+		  uint32_t payloadCRC = uartDataRx[1];
+		  payloadLen = uartDataRx[2];
+		  printmsg("CRC value and Payload Length received\r\n");
+		  printmsg("Waiting for the payload\r\n");
+		  HAL_UART_Receive(&huart3, dataArray, payloadLen, HAL_MAX_DELAY);
+		  //uint32_t crc_Value = HAL_CRC_Accumulate(&hcrc, &dataArray, payloadLen);
+		  if(!bootloader_verify_crc(&dataArray, payloadLen, payloadCRC))
+		  {
+			  printmsg("CRC is matched\r\n");
+			  printmsg("Data is being written\r\n");
+			  uint8_t statusWrite = 0;
+			  uint8_t statusErase = 0;
+			  statusErase = execute_flash_erase(6, 1);
+			  statusWrite = execute_mem_write(dataArray, pBuffer, payloadLen);
+			  if(statusWrite == HAL_OK)
+			  {
+				  printmsg("data is written successfully\r\n");
+				  HAL_GPIO_WritePin(GPIOG, GPIO_PIN_13, GPIO_PIN_SET);
+			  }
+			  else
+			  {
+				  printmsg("Data writing is failed\r\n");
+				  HAL_GPIO_WritePin(GPIOG, GPIO_PIN_14, GPIO_PIN_SET);
+			  }
+		  }
+		  else
+		  {
+			  printmsg("CRC is mis-matched\r\n");
+			  userApplication();
+		  }
 
-	  uint32_t temp = 0xFFFFFFFF;
-	  HAL_UART_Receive(&huart3, &data, 8, HAL_MAX_DELAY);
-	  if(data[0] = 0xAABBCCDD)
-	  {
-		  HAL_UART_Transmit(&huart3, &temp, sizeof(temp), HAL_MAX_DELAY);
-	  }
-	  payload_len = data[1];
-	  HAL_UART_Receive(&huart3, dataArray, payload_len, HAL_MAX_DELAY);
-	  uint32_t crcValue = HAL_CRC_Calculate(&hcrc, dataArray, payload_len);
-	  uint8_t statusWrite;
-	  uint8_t statusErase;
-	  statusErase = execute_flash_erase(6, 1);
-	  statusWrite = execute_mem_write(dataArray, pBuffer, payload_len);
-	  if(statusWrite == HAL_OK)
-	  {
-		  HAL_GPIO_WritePin(GPIOG, GPIO_PIN_13, GPIO_PIN_SET);
 	  }
 	  else
 	  {
-		  HAL_GPIO_WritePin(GPIOG, GPIO_PIN_14, GPIO_PIN_SET);
+		  printmsg("Unknown Tester Found\r\n");
+		  userApplication();
+
 	  }
-	  //crcValue = HAL_CRC_Calculate(&hcrc, dataArray, 4);
-	  //HAL_UART_Transmit(&huart3, (uint8_t*)dataArray, 20, HAL_MAX_DELAY);
-	  //HAL_GPIO_WritePin(GPIOG, GPIO_PIN_13, GPIO_PIN_SET);
   }
  else
  {
@@ -151,35 +188,34 @@ int main(void)
  }
 }
 void userApplication(void)
- {
+{
+	void (*app_reset_handler)(void);
 
-	     void (*app_reset_handler)(void);
-
-	     printmsg("BL_DEBUG_MSG:bootloader_jump_to_user_app\n");
+	//printmsg("BL_DEBUG_MSG:bootloader_jump_to_user_app\n");
 
 
-	     // 1. configure the MSP by reading the value from the base address of the sector 2
-	     uint32_t msp_value = *(volatile uint32_t *)FLASH_SECTOR6_BASE_ADDRESS;
-	     printmsg("BL_DEBUG_MSG:MSP value : %#x\n",msp_value);
+	// 1. configure the MSP by reading the value from the base address of the sector 2
+	uint32_t msp_value = *(volatile uint32_t *)FLASH_SECTOR6_BASE_ADDRESS;
+	//printmsg("BL_DEBUG_MSG:MSP value : %#x\n",msp_value);
 
-	     //This function comes from CMSIS.
-	     __set_MSP(msp_value);
+	//This function comes from CMSIS.
+	__set_MSP(msp_value);
 
-	     //SCB->VTOR = FLASH_SECTOR1_BASE_ADDRESS;
+	//SCB->VTOR = FLASH_SECTOR1_BASE_ADDRESS;
 
-	     /* 2. Now fetch the reset handler address of the user application
-	      * from the location FLASH_SECTOR2_BASE_ADDRESS+4
-	      */
-	     uint32_t resethandler_address = *(volatile uint32_t *) (FLASH_SECTOR6_BASE_ADDRESS + 4);
+	/* 2. Now fetch the reset handler address of the user application
+	 * from the location FLASH_SECTOR2_BASE_ADDRESS+4
+	 */
+	uint32_t resethandler_address = *(volatile uint32_t *) (FLASH_SECTOR6_BASE_ADDRESS + 4);
 
-	     app_reset_handler = (void*) resethandler_address;
+	app_reset_handler = (void*) resethandler_address;
 
-	     //printmsg("BL_DEBUG_MSG: app reset handler addr : %#x\n",app_reset_handler);
+	//printmsg("BL_DEBUG_MSG: app reset handler addr : %#x\n",app_reset_handler);
 
-	     //3. jump to reset handler of the user application
-	     app_reset_handler();
+	//3. jump to reset handler of the user application
+	app_reset_handler();
 
- }
+}
   /* USER CODE END 3 */
 
 
@@ -460,6 +496,32 @@ uint8_t execute_flash_erase(uint8_t sector_number , uint8_t number_of_sector)
 
 
 	return INVALID_SECTOR;
+}
+uint32_t calculateAuthenticationKEY(uint32_t key)
+{
+	uint32_t returnValue = key ^ 0xAABBCCDD;
+	return returnValue;
+
+}
+uint8_t bootloader_verify_crc (uint8_t *pData, uint32_t len, uint32_t crc_host)
+{
+    uint32_t uwCRCValue=0xff;
+
+    for (uint32_t i=0 ; i < len ; i++)
+	{
+        uint32_t i_data = pData[i];
+        uwCRCValue = HAL_CRC_Accumulate(&hcrc, &i_data, 1);
+	}
+
+	 /* Reset CRC Calculation Unit */
+  __HAL_CRC_DR_RESET(&hcrc);
+
+	if( uwCRCValue == crc_host)
+	{
+		return VERIFY_CRC_SUCCESS;
+	}
+
+	return VERIFY_CRC_FAIL;
 }
 /* USER CODE END 4 */
 
