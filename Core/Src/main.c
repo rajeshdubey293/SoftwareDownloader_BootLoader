@@ -50,6 +50,7 @@ UART_HandleTypeDef huart3;
 
 #define C_UART 	&huart3
 #define D_UART	&huart1
+#define FLASH_SECTOR_SIZE 131,072
 
 
 /* USER CODE END PV */
@@ -69,6 +70,7 @@ uint8_t execute_mem_write(uint8_t *pBuffer, uint32_t mem_address, uint32_t len);
 uint8_t execute_flash_erase(uint8_t sector_number , uint8_t number_of_sector);
 uint32_t calculateAuthenticationKEY(uint32_t key);
 uint8_t bootloader_verify_crc (uint8_t *pData, uint32_t len, uint32_t crc_host);
+uint8_t calculateNumOfSector(uint32_t);
 void userApplication(void);
 /* USER CODE END PFP */
 
@@ -149,29 +151,41 @@ int main(void)
 			printmsg("CRC value and Payload Length received\r\n");
 			printmsg("Waiting for the payload\r\n");
 			HAL_UART_Receive(&huart3, dataArray, payloadLen, HAL_MAX_DELAY);
-			//uint32_t crc_Value = HAL_CRC_Accumulate(&hcrc, &dataArray, payloadLen);
 			if(!(bootloader_verify_crc(&dataArray, payloadLen, payloadCRC)))
 			{
 				printmsg("CRC is matched\r\n");
 				printmsg("Data is being written\r\n");
 				uint8_t statusWrite = 0;
 				uint8_t statusErase = 0;
+				//uint8_t numOfSector = calculateNumOfSector(payloadLen); // to do
 				statusErase = execute_flash_erase(6, 1);
-				statusWrite = execute_mem_write(dataArray, pBuffer, payloadLen);
-				if(statusWrite == HAL_OK)
+				if(statusErase == HAL_OK)
 				{
-					printmsg("data is written successfully\r\n");
-					HAL_GPIO_WritePin(GPIOG, GPIO_PIN_13, GPIO_PIN_SET);
-					printmsg("Booting into User Application\r\n");
-					//HAL_Delay(500);
-					userApplication();
-				}
+					printmsg("Erasing Data is Succeeded\r\n");
+					statusWrite = execute_mem_write(dataArray, pBuffer, payloadLen);
+					if(statusWrite == HAL_OK)
+					{
+						printmsg("data is written successfully\r\n");
+						HAL_GPIO_WritePin(GPIOG, GPIO_PIN_13, GPIO_PIN_SET);
+						printmsg("Booting into User Application\r\n");
+						//HAL_Delay(500);
+						userApplication();
+					}
 				else
 				{
 					printmsg("Data writing is failed\r\n");
 					HAL_GPIO_WritePin(GPIOG, GPIO_PIN_14, GPIO_PIN_SET);
 					printmsg("Data is Erased, Please Go to Bootloader Mode and Download the firmware\r\n");
 					//HAL_Delay(500);
+				}
+				}
+				else
+				{
+					printmsg("Erasing is failed\r\n");
+					//HAL_Delay(500);
+					printmsg("Booting into User Application\r\n");
+					HAL_Delay(500);
+					userApplication();
 				}
 			}
 			else
@@ -535,6 +549,31 @@ void userApplication(void)
 	//3. jump to reset handler of the user application
 	app_reset_handler();
 
+}
+uint8_t calculateNumOfSector(uint32_t len)
+{
+	/*
+	 * Memory Arrangement of STM32F407
+	 * Sector 6 = 128Kbytes
+	 * Sector 7 = 128Kbytes
+	 * Sector 8 = 128Kbytes
+	 * Sector 9 = 128Kbytes
+	 * Sector 10 = 128Kbytes
+	 * Sector 11 = 128Kbytes
+	 * Total Available Size = 131072 * 6 = 786432 bytes
+	 * Total Sector = 6
+	 */
+	uint8_t numOfSector = 0;
+	uint32_t totalSize = 786432;
+	uint8_t totalSector = 6;
+	if(len < FLASH_SECTOR_SIZE)
+	{
+		numOfSector = 1;
+	}
+	else
+	{
+		numOfSector = totalSector - (totalSize / len);
+	}
 }
 /* USER CODE END 4 */
 
