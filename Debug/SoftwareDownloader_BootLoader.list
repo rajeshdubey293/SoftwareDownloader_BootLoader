@@ -37,11 +37,11 @@ Idx Name          Size      VMA       LMA       File off  Algn
                   CONTENTS, READONLY, DEBUGGING
  16 .debug_macro  00022aff  00000000  00000000  0002c248  2**0
                   CONTENTS, READONLY, DEBUGGING
- 17 .debug_line   000074c4  00000000  00000000  0004ed47  2**0
+ 17 .debug_line   000074c5  00000000  00000000  0004ed47  2**0
                   CONTENTS, READONLY, DEBUGGING
- 18 .debug_str    000d0bcd  00000000  00000000  0005620b  2**0
+ 18 .debug_str    000d0bcd  00000000  00000000  0005620c  2**0
                   CONTENTS, READONLY, DEBUGGING
- 19 .comment      0000007b  00000000  00000000  00126dd8  2**0
+ 19 .comment      0000007b  00000000  00000000  00126dd9  2**0
                   CONTENTS, READONLY
  20 .debug_frame  00002348  00000000  00000000  00126e54  2**2
                   CONTENTS, READONLY, DEBUGGING
@@ -581,7 +581,6 @@ int main(void)
  80006a2:	493b      	ldr	r1, [pc, #236]	; (8000790 <main+0x1f0>)
  80006a4:	4841      	ldr	r0, [pc, #260]	; (80007ac <main+0x20c>)
  80006a6:	f002 f839 	bl	800271c <HAL_UART_Receive>
-			//uint32_t crc_Value = HAL_CRC_Accumulate(&hcrc, &dataArray, payloadLen);
 			if(!(bootloader_verify_crc(&dataArray, payloadLen, payloadCRC)))
  80006aa:	4b48      	ldr	r3, [pc, #288]	; (80007cc <main+0x22c>)
  80006ac:	681b      	ldr	r3, [r3, #0]
@@ -605,7 +604,7 @@ int main(void)
 				uint8_t statusErase = 0;
  80006ce:	2300      	movs	r3, #0
  80006d0:	71bb      	strb	r3, [r7, #6]
-				//uint8_t numOfSector = calculateNumOfSector(payloadLen);
+				//uint8_t numOfSector = calculateNumOfSector(payloadLen); // to do
 				statusErase = execute_flash_erase(6, 1);
  80006d2:	2101      	movs	r1, #1
  80006d4:	2006      	movs	r0, #6
@@ -651,22 +650,22 @@ int main(void)
  800071c:	f000 faa2 	bl	8000c64 <userApplication>
  8000720:	e030      	b.n	8000784 <main+0x1e4>
 					}
-				else
-				{
-					printmsg("Data writing is failed\r\n");
+					else
+					{
+						printmsg("Data writing is failed\r\n");
  8000722:	4834      	ldr	r0, [pc, #208]	; (80007f4 <main+0x254>)
  8000724:	f000 f9be 	bl	8000aa4 <printmsg>
-					HAL_GPIO_WritePin(GPIOG, GPIO_PIN_14, GPIO_PIN_SET);
+						HAL_GPIO_WritePin(GPIOG, GPIO_PIN_14, GPIO_PIN_SET);
  8000728:	2201      	movs	r2, #1
  800072a:	f44f 4180 	mov.w	r1, #16384	; 0x4000
  800072e:	482f      	ldr	r0, [pc, #188]	; (80007ec <main+0x24c>)
  8000730:	f001 fa92 	bl	8001c58 <HAL_GPIO_WritePin>
-					printmsg("Data is Erased, Please Go to Bootloader Mode and Download the firmware\r\n");
+						printmsg("Data is Erased, Please Go to Bootloader Mode and Download the firmware\r\n");
  8000734:	4830      	ldr	r0, [pc, #192]	; (80007f8 <main+0x258>)
  8000736:	f000 f9b5 	bl	8000aa4 <printmsg>
  800073a:	e023      	b.n	8000784 <main+0x1e4>
-					//HAL_Delay(500);
-				}
+						//HAL_Delay(500);
+					}
 				}
 				else
 				{

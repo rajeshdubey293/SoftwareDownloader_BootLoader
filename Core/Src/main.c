@@ -171,13 +171,13 @@ int main(void)
 						//HAL_Delay(500);
 						userApplication();
 					}
-				else
-				{
-					printmsg("Data writing is failed\r\n");
-					HAL_GPIO_WritePin(GPIOG, GPIO_PIN_14, GPIO_PIN_SET);
-					printmsg("Data is Erased, Please Go to Bootloader Mode and Download the firmware\r\n");
-					//HAL_Delay(500);
-				}
+					else
+					{
+						printmsg("Data writing is failed\r\n");
+						HAL_GPIO_WritePin(GPIOG, GPIO_PIN_14, GPIO_PIN_SET);
+						printmsg("Data is Erased, Please Go to Bootloader Mode and Download the firmware\r\n");
+						//HAL_Delay(500);
+					}
 				}
 				else
 				{
@@ -574,6 +574,7 @@ uint8_t calculateNumOfSector(uint32_t len)
 	{
 		numOfSector = totalSector - (totalSize / len);
 	}
+	return numOfSector;
 }
 /* USER CODE END 4 */
 
