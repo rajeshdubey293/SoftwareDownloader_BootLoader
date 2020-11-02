@@ -1,4 +1,3 @@
-
 /* USER CODE BEGIN Header */
 /**
  ******************************************************************************
@@ -10,10 +9,10 @@
  * <h2><center>&copy; Copyright (c) 2020 STMicroelectronics.
  * All rights reserved.</center></h2>
  *
- * This software component is licensed by ST under Ultimate Liberty license
- * SLA0044, the "License"; You may not use this file except in compliance with
- * the License. You may obtain a copy of the License at:
- *                             www.st.com/SLA0044
+ * This software component is licensed by ST under BSD 3-Clause license,
+ * the "License"; You may not use this file except in compliance with the
+ * License. You may obtain a copy of the License at:
+ *                        opensource.org/licenses/BSD-3-Clause
  *
  ******************************************************************************
  */
@@ -33,25 +32,25 @@
 
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
+#define C_UART 	&huart3
+#define D_UART	&huart1
+#define FLASH_SECTOR_SIZE 131072
+#define BL_DEBUG_MSG_EN
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
 /* USER CODE BEGIN PM */
-#define BL_DEBUG_MSG_EN
+
 /* USER CODE END PM */
 
 /* Private variables ---------------------------------------------------------*/
 CRC_HandleTypeDef hcrc;
 
 UART_HandleTypeDef huart1;
+UART_HandleTypeDef huart2;
 UART_HandleTypeDef huart3;
 
 /* USER CODE BEGIN PV */
-
-#define C_UART 	&huart3
-#define D_UART	&huart1
-#define FLASH_SECTOR_SIZE 131,072
-
 
 /* USER CODE END PV */
 
@@ -60,6 +59,7 @@ void SystemClock_Config(void);
 static void MX_GPIO_Init(void);
 static void MX_CRC_Init(void);
 static void MX_USART1_UART_Init(void);
+static void MX_USART2_UART_Init(void);
 static void MX_USART3_UART_Init(void);
 /* USER CODE BEGIN PFP */
 static void printmsg(char *format,...);
@@ -76,14 +76,14 @@ void userApplication(void);
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
-volatile uint32_t pBuffer = (uint32_t)0x08040000;
+volatile uint32_t dataBuffer = (uint32_t)0x08040000;
+volatile uint32_t crcBuffer = (uint32_t)0x08040000;
 #define BL_RX_LEN  10000
 uint8_t dataArray[BL_RX_LEN];
 uint32_t uartDataRx[3] = {0};
 uint32_t uartDataTx[3] = {0};
 uint32_t payloadLen = 0;
 uint32_t key = 0xFFCCDDCC;
-
 /* USER CODE END 0 */
 
 /**
@@ -116,12 +116,9 @@ int main(void)
 	MX_GPIO_Init();
 	MX_CRC_Init();
 	MX_USART1_UART_Init();
+	MX_USART2_UART_Init();
 	MX_USART3_UART_Init();
 	/* USER CODE BEGIN 2 */
-
-	/* USER CODE END 2 */
-	/* Infinite loop */
-	/* USER CODE BEGIN WHILE */
 	memset(dataArray,0,10000);
 	printmsg("Press User Button within 3 Seconds to boot into BootLoader Mode\r\n");
 	//HAL_Delay(3000);
@@ -132,29 +129,35 @@ int main(void)
 		uartDataTx[0] = key;
 		printmsg("Waiting for Tester Connection\r\n");
 		uint32_t temp = 0;
-		HAL_UART_Receive(&huart3, &temp, 4, HAL_MAX_DELAY);
+		HAL_UART_Receive(C_UART, (uint8_t*)&temp, 4, HAL_MAX_DELAY);
 		printmsg("Sending Authentication Key to Tester\r\n");
 		HAL_Delay(500);
-		HAL_UART_Transmit(&huart3, &uartDataTx[0], 4, HAL_MAX_DELAY);
+		HAL_UART_Transmit(C_UART, (uint8_t*)&uartDataTx[0], 4, HAL_MAX_DELAY);
 		printmsg("Waiting for the Tester Key\r\n");
-		HAL_UART_Receive(&huart3, &uartDataRx[0], 4, HAL_MAX_DELAY);
+		HAL_UART_Receive(C_UART, (uint8_t*)&uartDataRx[0], 4, HAL_MAX_DELAY);
 		if(uartDataRx[0] == downloaderKey)
 		{
 			printmsg("Tester is verified successfully\r\n");
 			uartDataTx[1] = 0xFFFFFFFF;
-			//HAL_Delay(1000);
-			HAL_UART_Transmit(&huart3, &uartDataTx[1], 4, HAL_MAX_DELAY);
+			HAL_Delay(1000);
+			HAL_UART_Transmit(C_UART, (uint8_t*)&uartDataTx[1], 4, HAL_MAX_DELAY);
 			printmsg("Verification msg sent\r\n");
-			HAL_UART_Receive(&huart3, &uartDataRx[1], 8, HAL_MAX_DELAY);
+			HAL_UART_Receive(&huart3, (uint8_t*)&uartDataRx[1], 8, HAL_MAX_DELAY);
 			uint32_t payloadCRC = uartDataRx[1];
 			payloadLen = uartDataRx[2];
 			printmsg("CRC value and Payload Length received\r\n");
+			//printmsg("Payload Length = %d\r\n", payloadLen);
+			//printmsg("Received CRC = %x\r\n", payloadCRC);
 			printmsg("Waiting for the payload\r\n");
-			HAL_UART_Receive(&huart3, dataArray, payloadLen, HAL_MAX_DELAY);
-			if(!(bootloader_verify_crc(&dataArray, payloadLen, payloadCRC)))
+			HAL_UART_Receive(C_UART, (uint8_t*)dataArray, payloadLen, HAL_MAX_DELAY);
+			printmsg("Payload received\r\n");
+			HAL_Delay(1000);
+			if(!(bootloader_verify_crc((uint8_t*)&dataArray, payloadLen, payloadCRC)))
 			{
 				printmsg("CRC is matched\r\n");
+				HAL_Delay(1000);
 				printmsg("Data is being written\r\n");
+				HAL_Delay(1000);
 				uint8_t statusWrite = 0;
 				uint8_t statusErase = 0;
 				//uint8_t numOfSector = calculateNumOfSector(payloadLen); // to do
@@ -162,46 +165,50 @@ int main(void)
 				if(statusErase == HAL_OK)
 				{
 					printmsg("Erasing Data is Succeeded\r\n");
-					statusWrite = execute_mem_write(dataArray, pBuffer, payloadLen);
+					HAL_Delay(1000);
+					statusWrite = execute_mem_write(dataArray, dataBuffer, payloadLen);
 					if(statusWrite == HAL_OK)
 					{
 						printmsg("data is written successfully\r\n");
 						HAL_GPIO_WritePin(GPIOG, GPIO_PIN_13, GPIO_PIN_SET);
+						HAL_Delay(1000);
 						printmsg("Booting into User Application\r\n");
-						//HAL_Delay(500);
+						HAL_Delay(1000);
 						userApplication();
 					}
 					else
 					{
 						printmsg("Data writing is failed\r\n");
+						HAL_Delay(1000);
 						HAL_GPIO_WritePin(GPIOG, GPIO_PIN_14, GPIO_PIN_SET);
 						printmsg("Data is Erased, Please Go to Bootloader Mode and Download the firmware\r\n");
-						//HAL_Delay(500);
+						HAL_Delay(1000);
 					}
 				}
 				else
 				{
 					printmsg("Erasing is failed\r\n");
-					//HAL_Delay(500);
+					HAL_Delay(1000);
 					printmsg("Booting into User Application\r\n");
-					HAL_Delay(500);
+					HAL_Delay(1000);
 					userApplication();
 				}
 			}
 			else
 			{
 				printmsg("CRC is mis-matched\r\n");
-				//HAL_Delay(500);
+				HAL_Delay(1000);
 				printmsg("Booting into User Application\r\n");
+				HAL_Delay(1000);
 				userApplication();
 			}
-
 		}
 		else
 		{
 			printmsg("Unknown Tester Found\r\n");
-			//HAL_Delay(500);
+			HAL_Delay(1000);
 			printmsg("Booting into User Application\r\n");
+			HAL_Delay(1000);
 			userApplication();
 
 		}
@@ -209,13 +216,11 @@ int main(void)
 	else
 	{
 		printmsg("Booting into User Application\r\n");
-		//HAL_Delay(500);
+		HAL_Delay(1000);
 		userApplication();
 	}
+	/* USER CODE END 2 */
 }
-
-/* USER CODE END 3 */
-
 
 /**
  * @brief System Clock Configuration
@@ -229,19 +234,26 @@ void SystemClock_Config(void)
 	/** Configure the main internal regulator output voltage
 	 */
 	__HAL_RCC_PWR_CLK_ENABLE();
-	__HAL_PWR_VOLTAGESCALING_CONFIG(PWR_REGULATOR_VOLTAGE_SCALE3);
+	__HAL_PWR_VOLTAGESCALING_CONFIG(PWR_REGULATOR_VOLTAGE_SCALE1);
 	/** Initializes the RCC Oscillators according to the specified parameters
 	 * in the RCC_OscInitTypeDef structure.
 	 */
-	RCC_OscInitStruct.OscillatorType = RCC_OSCILLATORTYPE_HSE;
-	RCC_OscInitStruct.HSEState = RCC_HSE_ON;
+	RCC_OscInitStruct.OscillatorType = RCC_OSCILLATORTYPE_HSI;
+	RCC_OscInitStruct.HSIState = RCC_HSI_ON;
+	RCC_OscInitStruct.HSICalibrationValue = RCC_HSICALIBRATION_DEFAULT;
 	RCC_OscInitStruct.PLL.PLLState = RCC_PLL_ON;
-	RCC_OscInitStruct.PLL.PLLSource = RCC_PLLSOURCE_HSE;
-	RCC_OscInitStruct.PLL.PLLM = 4;
-	RCC_OscInitStruct.PLL.PLLN = 84;
+	RCC_OscInitStruct.PLL.PLLSource = RCC_PLLSOURCE_HSI;
+	RCC_OscInitStruct.PLL.PLLM = 8;
+	RCC_OscInitStruct.PLL.PLLN = 180;
 	RCC_OscInitStruct.PLL.PLLP = RCC_PLLP_DIV2;
-	RCC_OscInitStruct.PLL.PLLQ = 3;
+	RCC_OscInitStruct.PLL.PLLQ = 7;
 	if (HAL_RCC_OscConfig(&RCC_OscInitStruct) != HAL_OK)
+	{
+		Error_Handler();
+	}
+	/** Activate the Over-Drive mode
+	 */
+	if (HAL_PWREx_EnableOverDrive() != HAL_OK)
 	{
 		Error_Handler();
 	}
@@ -251,10 +263,10 @@ void SystemClock_Config(void)
 			|RCC_CLOCKTYPE_PCLK1|RCC_CLOCKTYPE_PCLK2;
 	RCC_ClkInitStruct.SYSCLKSource = RCC_SYSCLKSOURCE_PLLCLK;
 	RCC_ClkInitStruct.AHBCLKDivider = RCC_SYSCLK_DIV1;
-	RCC_ClkInitStruct.APB1CLKDivider = RCC_HCLK_DIV2;
-	RCC_ClkInitStruct.APB2CLKDivider = RCC_HCLK_DIV1;
+	RCC_ClkInitStruct.APB1CLKDivider = RCC_HCLK_DIV4;
+	RCC_ClkInitStruct.APB2CLKDivider = RCC_HCLK_DIV2;
 
-	if (HAL_RCC_ClockConfig(&RCC_ClkInitStruct, FLASH_LATENCY_2) != HAL_OK)
+	if (HAL_RCC_ClockConfig(&RCC_ClkInitStruct, FLASH_LATENCY_5) != HAL_OK)
 	{
 		Error_Handler();
 	}
@@ -320,6 +332,39 @@ static void MX_USART1_UART_Init(void)
 }
 
 /**
+ * @brief USART2 Initialization Function
+ * @param None
+ * @retval None
+ */
+static void MX_USART2_UART_Init(void)
+{
+
+	/* USER CODE BEGIN USART2_Init 0 */
+
+	/* USER CODE END USART2_Init 0 */
+
+	/* USER CODE BEGIN USART2_Init 1 */
+
+	/* USER CODE END USART2_Init 1 */
+	huart2.Instance = USART2;
+	huart2.Init.BaudRate = 115200;
+	huart2.Init.WordLength = UART_WORDLENGTH_8B;
+	huart2.Init.StopBits = UART_STOPBITS_1;
+	huart2.Init.Parity = UART_PARITY_NONE;
+	huart2.Init.Mode = UART_MODE_TX_RX;
+	huart2.Init.HwFlowCtl = UART_HWCONTROL_NONE;
+	huart2.Init.OverSampling = UART_OVERSAMPLING_16;
+	if (HAL_UART_Init(&huart2) != HAL_OK)
+	{
+		Error_Handler();
+	}
+	/* USER CODE BEGIN USART2_Init 2 */
+
+	/* USER CODE END USART2_Init 2 */
+
+}
+
+/**
  * @brief USART3 Initialization Function
  * @param None
  * @retval None
@@ -362,7 +407,6 @@ static void MX_GPIO_Init(void)
 	GPIO_InitTypeDef GPIO_InitStruct = {0};
 
 	/* GPIO Ports Clock Enable */
-	__HAL_RCC_GPIOC_CLK_ENABLE();
 	__HAL_RCC_GPIOH_CLK_ENABLE();
 	__HAL_RCC_GPIOA_CLK_ENABLE();
 	__HAL_RCC_GPIOB_CLK_ENABLE();
@@ -387,7 +431,6 @@ static void MX_GPIO_Init(void)
 }
 
 /* USER CODE BEGIN 4 */
-/* prints formatted string to console over UART */
 void printmsg(char *format,...)
 {
 #ifdef BL_DEBUG_MSG_EN
@@ -423,15 +466,6 @@ uint32_t crcCalculation(uint32_t crcArray[], uint8_t lenOfArray)
 		bindex = 0;
 	}
 	return crc;
-}
-uint8_t word_to_bytes(uint8_t *dest, uint32_t *src)
-{
-	memcpy(&dest, src, sizeof(dest));
-
-}
-uint32_t bytes_to_word(uint32_t *dest, uint8_t *src)
-{
-	memcpy(dest, &src, sizeof(dest));
 }
 uint8_t execute_mem_write(uint8_t *pBuffer, uint32_t mem_address, uint32_t len)
 {
@@ -538,7 +572,7 @@ void userApplication(void)
 	//SCB->VTOR = FLASH_SECTOR1_BASE_ADDRESS;
 
 	/* 2. Now fetch the reset handler address of the user application
-	 * from the location FLASH_SECTOR2_BASE_ADDRESS+4
+	 * from the location FLASH_SECTOR6_BASE_ADDRESS+4
 	 */
 	uint32_t resethandler_address = *(volatile uint32_t *) (FLASH_SECTOR6_BASE_ADDRESS + 4);
 

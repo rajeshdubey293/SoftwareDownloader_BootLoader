@@ -10,10 +10,10 @@
   * <h2><center>&copy; Copyright (c) 2020 STMicroelectronics.
   * All rights reserved.</center></h2>
   *
-  * This software component is licensed by ST under Ultimate Liberty license
-  * SLA0044, the "License"; You may not use this file except in compliance with
-  * the License. You may obtain a copy of the License at:
-  *                             www.st.com/SLA0044
+  * This software component is licensed by ST under BSD 3-Clause license,
+  * the "License"; You may not use this file except in compliance with the
+  * License. You may obtain a copy of the License at:
+  *                        opensource.org/licenses/BSD-3-Clause
   *
   ******************************************************************************
   */
@@ -39,10 +39,7 @@ extern "C" {
 
 /* Exported types ------------------------------------------------------------*/
 /* USER CODE BEGIN ET */
-#define FLASH_SECTOR6_BASE_ADDRESS 0x08040000U
-#define INVALID_SECTOR 0x04
-#define VERIFY_CRC_FAIL    1
-#define VERIFY_CRC_SUCCESS 0
+
 /* USER CODE END ET */
 
 /* Exported constants --------------------------------------------------------*/
@@ -52,7 +49,10 @@ extern "C" {
 
 /* Exported macro ------------------------------------------------------------*/
 /* USER CODE BEGIN EM */
-
+#define FLASH_SECTOR6_BASE_ADDRESS 0x08040000U
+#define INVALID_SECTOR 0x04
+#define VERIFY_CRC_FAIL    1
+#define VERIFY_CRC_SUCCESS 0
 /* USER CODE END EM */
 
 /* Exported functions prototypes ---------------------------------------------*/

@@ -30,24 +30,24 @@ endif
 
 # Add inputs and outputs from these tool invocations to the build variables 
 EXECUTABLES += \
-SoftwareDownloader_BootLoader.elf \
+BootLoader-STM32F429.elf \
 
 SIZE_OUTPUT += \
 default.size.stdout \
 
 OBJDUMP_LIST += \
-SoftwareDownloader_BootLoader.list \
+BootLoader-STM32F429.list \
 
 OBJCOPY_BIN += \
-SoftwareDownloader_BootLoader.bin \
+BootLoader-STM32F429.bin \
 
 
 # All Target
-all: SoftwareDownloader_BootLoader.elf secondary-outputs
+all: BootLoader-STM32F429.elf secondary-outputs
 
 # Tool invocations
-SoftwareDownloader_BootLoader.elf: $(OBJS) $(USER_OBJS) D:\STM32CubeIDE\workspace_1.0.2\SoftwareDownloader_BootLoader\STM32F429ZITX_FLASH.ld
-	arm-none-eabi-gcc -o "SoftwareDownloader_BootLoader.elf" @"objects.list" $(USER_OBJS) $(LIBS) -mcpu=cortex-m4 -T"D:\STM32CubeIDE\workspace_1.0.2\SoftwareDownloader_BootLoader\STM32F429ZITX_FLASH.ld" --specs=nosys.specs -Wl,-Map="SoftwareDownloader_BootLoader.map" -Wl,--gc-sections -static --specs=nano.specs -mfpu=fpv4-sp-d16 -mfloat-abi=hard -mthumb -Wl,--start-group -lc -lm -Wl,--end-group
+BootLoader-STM32F429.elf: $(OBJS) $(USER_OBJS) D:\STM32CubeIDE\workspace_1.0.2\BootLoader-STM32F429\STM32F429ZITX_FLASH.ld
+	arm-none-eabi-gcc -o "BootLoader-STM32F429.elf" @"objects.list" $(USER_OBJS) $(LIBS) -mcpu=cortex-m4 -T"D:\STM32CubeIDE\workspace_1.0.2\BootLoader-STM32F429\STM32F429ZITX_FLASH.ld" --specs=nosys.specs -Wl,-Map="BootLoader-STM32F429.map" -Wl,--gc-sections -static --specs=nano.specs -mfpu=fpv4-sp-d16 -mfloat-abi=hard -mthumb -Wl,--start-group -lc -lm -Wl,--end-group
 	@echo 'Finished building target: $@'
 	@echo ' '
 
@@ -56,13 +56,13 @@ default.size.stdout: $(EXECUTABLES)
 	@echo 'Finished building: $@'
 	@echo ' '
 
-SoftwareDownloader_BootLoader.list: $(EXECUTABLES)
-	arm-none-eabi-objdump -h -S $(EXECUTABLES) > "SoftwareDownloader_BootLoader.list"
+BootLoader-STM32F429.list: $(EXECUTABLES)
+	arm-none-eabi-objdump -h -S $(EXECUTABLES) > "BootLoader-STM32F429.list"
 	@echo 'Finished building: $@'
 	@echo ' '
 
-SoftwareDownloader_BootLoader.bin: $(EXECUTABLES)
-	arm-none-eabi-objcopy  -O binary $(EXECUTABLES) "SoftwareDownloader_BootLoader.bin"
+BootLoader-STM32F429.bin: $(EXECUTABLES)
+	arm-none-eabi-objcopy  -O binary $(EXECUTABLES) "BootLoader-STM32F429.bin"
 	@echo 'Finished building: $@'
 	@echo ' '
 
